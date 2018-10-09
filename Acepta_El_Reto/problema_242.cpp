@@ -1,39 +1,39 @@
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 #include <iostream>
 
 using namespace std;
 
 int main() {
 
-	int n_paises;
-	long long int array_paises[100000];
+	int n;
+	long long int v[100000];
 	long long int total;
 	long long int result;
 
-	while (cin >> n_paises && n_paises != 0) {
+	while (scanf("%lld", &n) && n != 0) {
 
 		total = 0;
 
-		for (size_t i = 0; i < n_paises; i++) {
+		for (int i = 0; i < n; i++) {
 
-			cin >> array_paises[i];
-			total += array_paises[i];
+			scanf("%lld", &v[i]);
+			total += v[i];
 
 		}
 
 		result = (total * (total - 1)) / 2;
 
-		for (size_t i = 0; i < n_paises; i++) {
+		for (int i = 0; i < n; i++) {
 
-			result -= (array_paises[i] * (array_paises[i] - 1)) / 2;
+			result -= (v[i] * (v[i] - 1)) / 2;
 
 		}
 
-		cout << result << "\n";
-
+		printf("%lld\n", result);
 
 	}
-
-	getchar();
 
 	return 0;
 }

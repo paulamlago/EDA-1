@@ -1,4 +1,8 @@
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 #include <iostream>
+#include <string>
 
 using namespace std;
 
@@ -56,7 +60,7 @@ int alg(int v[100], bool b[100], int n) {
 
 		mcm = (mcm * cont) / Mcd(mcm, cont);
 
-		i = done (b, n);
+		i = done(b, n);
 
 	}
 
@@ -72,11 +76,11 @@ int main() {
 	bool b[100];
 	int ret;
 
-	while (cin >> n && n > 0) {
+	while (scanf("%d", &n) && n > 0) {
 
 		for (int i = 0; i < n; i++) {
 
-			cin >> aux;
+			scanf("%d", &aux);
 			v[i] = aux - 1;
 			b[i] = true;
 
@@ -84,7 +88,7 @@ int main() {
 
 		ret = alg(v, b, n);
 
-		cout << ret << "\n";
+		printf("%d\n", ret);
 
 	}
 

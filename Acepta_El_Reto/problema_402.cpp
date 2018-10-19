@@ -1,45 +1,15 @@
-#include <iostream>
-#include <cmath>
-
-using namespace std;
-
-inline int puzzle(int n) {
-
-	int a = sqrt(n);
-
-	while ((n % a) > 0) {
-
-		a--;
-
-	}
-
-	return n / a;
-}
-
-int main() {
-
-	int n;
-
-	while (cin >> n  && n != 0) {
-
-		cout << puzzle(n) << "\n";
-
-	}
-
-	return 0;
-}
-
-// Versión en C -> Más eficiente
-
-/*
-
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 #include <stdio.h>
 #include <math.h>
+
+using namespace std;
 
 int main() {
 
 	int n, a, aux;
-	scanf_s("%d", &n);
+	scanf("%d", &n);
 
 	while (n != 0) {
 
@@ -50,11 +20,9 @@ int main() {
 
 		aux = n / a;
 		printf("%d\n", aux);
-		scanf_s("%d", &n);
+		scanf("%d", &n);
 
 	}
 
 	return 0;
 }
-
-*/

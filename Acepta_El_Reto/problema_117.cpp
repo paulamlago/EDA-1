@@ -19,7 +19,6 @@ int main() {
 
 		for (int i = 4; i < str.size(); i++) {
 
-
 			cout << str[i];
 
 		}

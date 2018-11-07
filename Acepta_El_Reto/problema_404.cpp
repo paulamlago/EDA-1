@@ -1,21 +1,14 @@
-#ifdef _MSC_VER
-#define _CRT_SECURE_NO_WARNINGS
-#endif
-
-#include <stdio.h>
-#include <string>
 #include <iostream>
-#include <vector>
-#include <algorithm>
+#include <string>
 
 using namespace std;
 
+int cont;
+
 /*
 
-//#####################################
-//  # DESCOMENTAR EN ACEPTA EL RETO #
-//#####################################
-
+    // Descomentar en AER
+    
 inline void out(int n)
 {
 	int N = n, rev, count = 0;
@@ -23,24 +16,14 @@ inline void out(int n)
 	if (N == 0) {
 		putchar_unlocked('0');
 		putchar_unlocked('\n');
-		return; }
+		return;
+	}
 	while ((rev % 10) == 0) { count++; rev /= 10; }
 	rev = 0;
 	while (N != 0) { rev = (rev << 3) + (rev << 1) + N % 10; N /= 10; }
 	while (rev != 0) { putchar_unlocked(rev % 10 + '0'); rev /= 10; }
 	while (count--) putchar_unlocked('0');
 	putchar_unlocked('\n');
-}
-
-inline void in(int &n)
-{
-	n = 0;
-	int ch = getchar_unlocked(); int sign = 1;
-	while (ch < '0' || ch > '9') { if (ch == '-')sign = -1; ch = getchar_unlocked(); }
-
-	while (ch >= '0' && ch <= '9')
-		n = (n << 3) + (n << 1) + ch - '0', ch = getchar_unlocked();
-	n = n * sign;
 }
 */
 
@@ -60,25 +43,37 @@ inline void out(int n)
 	while (count--) putchar('0');
 	putchar('\n');
 }
+void num(string str, int i) {
+
+	if (i == str.length())
+		cont++;
+
+	if ((i < str.size()))
+		num(str, i + 1);
+
+	if ((i + 1 < str.size()) && (str[i] == 'I' && str[i + 1] == 'I') || (str[i] == 'I' && str[i + 1] == 'V') || (str[i] == 'I' && str[i + 1] == 'X') || (str[i] == 'V' && str[i + 1] == 'I'))
+		num(str, i + 2);
+
+	if ((i + 2 < str.size()) && (str[i] == 'V' && str[i + 1] == 'I' && str[i + 2] == 'I') || (str[i] == 'I' && str[i + 1] == 'I' && str[i + 2] == 'I'))
+		num(str, i + 3);
+
+	if ((i + 3 < str.size()) && (str[i] == 'V' && str[i + 1] == 'I' && str[i + 2] == 'I' && str[i + 3] == 'I'))
+		num(str, i + 4);
+
+}
 
 int main() {
 
-	int num_casos, n;
+	std::ios::sync_with_stdio(false);
+	cin.tie(NULL);
 
-	in(num_casos);
+	string str;
 
-	while (num_casos--) {
+	while (cin >> str) {
 
-		in(n);
-
-		if (n == 0)
-			out(1);
-		else if (n == 3)
-			out(6);
-		else if (n < 5)
-			out(n);
-		else 
-			out(0);
+		cont = 0;
+		num(str, 0);
+		out(cont);
 
 	}
 

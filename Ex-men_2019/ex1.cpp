@@ -1,4 +1,4 @@
-// Diego Atance Sanz - 70901140Y
+// Diego Atance Sanz
 
 #include <iostream>
 #include <cmath>
@@ -8,8 +8,8 @@ using namespace std;
 
 //	{ O(n) }
 /*  { Pre: 0 <= n < long(v) ^ (0 <= k < n) }
-	El vector deberá ser booleano (si se introduce un vector no booleano, C contará todo caracter distinto de "0" como true. El algoritmo funcionaría.
-	k puede tomar cualquier valor, si es 0, mayor que n o mayor que long(v), devolverá n + 1, la precondición se establece con tal de cumplir el enunciado.
+	El vector deberÃ¡ ser booleano (si se introduce un vector no booleano, C contarÃ¡ todo caracter distinto de "0" como true. El algoritmo funcionarÃ­a.
+	k puede tomar cualquier valor, si es 0, mayor que n o mayor que long(v), devolverÃ¡ n + 1, la precondiciÃ³n se establece con tal de cumplir el enunciado.
 */
 
 int solve(bool v[], int n, int k) /* return ret */ {

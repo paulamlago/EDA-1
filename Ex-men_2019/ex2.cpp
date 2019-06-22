@@ -1,5 +1,4 @@
-// Diego Atance Sanz - 70901140Y
-
+// Diego Atance Sanz
 #include <iostream>
 #include <cmath>
 #include <algorithm>

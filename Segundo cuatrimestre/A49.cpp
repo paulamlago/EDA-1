@@ -1,0 +1,763 @@
+#ifndef __EXCEPCIONES_H
+#define __EXCEPCIONES_H
+
+#include <string>
+#include <iosfwd>
+/**
+Clase de la que heredan todas las excepciones, y
+que proporciona el atributo que almacena el
+mensaje de error.
+*/
+class ExcepcionTAD {
+public:
+	ExcepcionTAD() {}
+	ExcepcionTAD(const std::string &msg) : _msg(msg) {}
+
+	const std::string msg() const { return _msg; }
+
+	friend std::ostream &operator<<(std::ostream &out, const ExcepcionTAD &e);
+
+protected:
+	std::string _msg;
+};
+
+inline std::ostream &operator<<(std::ostream &out, const ExcepcionTAD &e) {
+	out << e._msg;
+	return out;
+}
+
+
+// Macro para declarar las clases de tipo excepción
+// que heredan de ExcepcionConMensaje, para ahorrar
+// escribir muchas veces lo mismo...
+#define DECLARA_EXCEPCION(Excepcion) \
+class Excepcion : public ExcepcionTAD { \
+public: \
+Excepcion() {}; \
+Excepcion(const std::string &msg) : ExcepcionTAD(msg) {} \
+};
+
+/**
+Excepción generada por algunas operaciones de las pilas.
+*/
+DECLARA_EXCEPCION(EmptyStackException);
+
+/**
+Excepción generada por algunas operaciones de las pilas.
+*/
+DECLARA_EXCEPCION(FullStackException);
+
+/**
+Excepción generada por algunas de las operaciones de las colas.
+*/
+DECLARA_EXCEPCION(EmptyQueueException);
+
+/**
+Excepción generada por algunas operaciones de las colas dobles.
+*/
+DECLARA_EXCEPCION(EmptyDequeException);
+
+/**
+Excepción generada por algunas operaciones de las listas.
+*/
+DECLARA_EXCEPCION(EmptyListException);
+
+/**
+Excepción generada por accesos incorrectos a las listas
+(tanto a un número de elemento incorrecto como por
+mal manejo de los iteradores).
+*/
+DECLARA_EXCEPCION(InvalidAccessException);
+
+/**
+Excepción generada por algunas operaciones de los
+árboles binarios.
+*/
+DECLARA_EXCEPCION(EArbolVacio);
+
+/**
+Excepción generada por algunas operaciones de los
+diccionarios y árboles de búsqueda.
+*/
+DECLARA_EXCEPCION(EClaveErronea);
+
+#endif // __EXCEPCIONES_H
+
+#ifndef __LIST_H
+#define __LIST_H
+
+#include <cassert>
+
+/**
+Implementación del TAD Lista utilizando una lista doblemente enlazada.
+
+Las operaciones son:
+
+- EmptyList: -> List. Generadora implementada en el
+constructor sin parámetros.
+- Push_front: List, Elem -> List. Generadora.
+- push_back: List, Elem -> List. Modificadora.
+- front: List - -> Elem. Observadora parcial
+- pop_front: List - -> List. Modificadora parcial
+- back: List - -> Elem. Observadora parcial
+- pop_back: List - -> List. Modificadora parcial
+- empty: List -> Bool. Observadora
+- size: List -> Entero. Obervadora.
+- at: List, Entero - -> Elem. Observador parcial.
+
+@author Marco Antonio Gómez Martín
+*/
+template <class T>
+class List {
+private:
+	/**
+	Clase nodo que almacena internamente el elemento (de tipo T),
+	y dos punteros, uno al nodo anterior y otro al nodo siguiente.
+	Ambos punteros podrían ser NULL si el nodo es el primero
+	y/o último de la lista enlazada.
+	*/
+	class Nodo {
+	public:
+		Nodo() : _sig(NULL), _ant(NULL) {}
+		Nodo(const T &elem) : _elem(elem), _sig(NULL), _ant(NULL) {}
+		Nodo(Nodo *ant, const T &elem, Nodo *sig) :
+			_elem(elem), _sig(sig), _ant(ant) {}
+
+		T _elem;
+		Nodo *_sig;
+		Nodo *_ant;
+	};
+
+public:
+
+	/** Constructor; operación EmptyList. */
+	List() : _prim(NULL), _ult(NULL), _numElems(0) {}
+
+	/** Destructor; elimina la lista doblemente enlazada. */
+	~List() {
+		libera();
+	}
+
+	/**
+	Añade un nuevo elemento en la cabeza de la lista.
+	Operación generadora.
+
+	@param elem Elemento que se añade en la cabecera de
+	la lista.
+	*/
+	void push_front(const T &elem) {
+		_prim = insertaElem(elem, NULL, _prim);
+		if (_ult == NULL)
+			_ult = _prim;
+	}
+
+	/**
+	Añade un nuevo elemento al final de la lista (a la
+	"derecha"). Operación modificadora.
+
+	push_back(e, EmptyList) = Cons(e, EmptyList)
+	push_back(e, Push_front(x, xs)) = Push_front(x, push_back(e, xs))
+	*/
+	void push_back(const T &elem) {
+		_ult = insertaElem(elem, _ult, NULL);
+		if (_prim == NULL)
+			_prim = _ult;
+	}
+
+	/**
+	Devuelve el valor almacenado en la cabecera de la
+	lista. Es un error preguntar por el primero de
+	una lista vacía.
+
+	front(Push_front(x, xs)) = x
+	error front(EmptyList)
+
+	@return Elemento en la cabecera de la lista.
+	*/
+	const T &front() const {
+		if (empty())
+			throw EmptyListException();
+		return _prim->_elem;
+	}
+
+	/**
+	Devuelve el valor almacenado en la última posición
+	de la lista (a la derecha).
+	Es un error preguntar por el primero de una lista vacía.
+
+	back(Push_front(x, xs)) = x           SI empty(xs)
+	back(Push_front(x, xs)) = back(xs)  SI !empty(xs)
+	error back(EmptyList)
+
+	@return Elemento en la cola de la lista.
+	*/
+	const T &back() const {
+		if (empty())
+			throw EmptyListException();
+
+		return _ult->_elem;
+	}
+
+	/**
+	Elimina el primer elemento de la lista.
+	Es un error intentar obtener el resto de una lista vacía.
+
+	pop_front(Push_front(x, xs)) = xs
+	error pop_front(EmptyList)
+	*/
+	void pop_front() {
+		if (empty())
+			throw EmptyListException();
+
+		Nodo *aBorrar = _prim;
+		_prim = _prim->_sig;
+		borraElem(aBorrar);
+		if (_prim == NULL)
+			_ult = NULL;
+	}
+
+	/**
+	Elimina el último elemento de la lista.
+	Es un error intentar obtener el inicio de una lista vacía.
+
+	inicio(Push_front(x, EmptyList)) = EmptyList
+	inicio(Push_front(x, xs)) = Push_front(x, inicio(xs)) SI !empty(xs)
+	error inicio(EmptyList)
+	*/
+	void pop_back() {
+		if (empty())
+			throw EmptyListException();
+
+		Nodo *aBorrar = _ult;
+		_ult = _ult->_ant;
+		borraElem(aBorrar);
+		if (_ult == NULL)
+			_prim = NULL;
+	}
+
+	/**
+	Operación observadora para saber si una lista
+	tiene o no elementos.
+
+	empty(EmptyList) = true
+	empty(Push_front(x, xs)) = false
+
+	@return true si la lista no tiene elementos.
+	*/
+	bool empty() const {
+		return _prim == NULL;
+	}
+
+	/**
+	Devuelve el número de elementos que hay en la
+	lista.
+	size(EmptyList) = 0
+	size(Push_front(x, xs)) = 1 + size(xs)
+
+	@return Número de elementos.
+	*/
+	unsigned int size() const {
+		return _numElems;
+	}
+
+	/**
+	Devuelve el elemento i-ésimo de la lista, teniendo
+	en cuenta que el primer elemento (first())
+	es el elemento 0 y el último es size()-1,
+	es decir idx está en [0..size()-1].
+	Operación observadora parcial que puede fallar
+	si se da un índice incorrecto. El índice es
+	entero sin signo, para evitar que se puedan
+	pedir elementos negativos.
+
+	elem(0, Push_front(x, xs)) = x
+	elem(n, Push_front(x, xs)) = elem(n-1, xs) si n > 0
+	error elem(n, xs) si !( 0 <= n < size(xs) )
+	*/
+	const T &at(unsigned int idx) const {
+		if (idx >= _numElems)
+			throw InvalidAccessException();
+
+		Nodo *aux = _prim;
+		for (int i = 0; i < idx; ++i)
+			aux = aux->_sig;
+
+		return aux->_elem;
+	}
+
+	void ereaseRepeticiones() {
+		if (!empty()){
+			Iterator it1 = begin();
+			int elemBefore = it1.elem();
+			it1++;
+
+			while (it1 != end()) {
+
+				if (it1.elem() == elemBefore) {
+					it1 = erase(it1);
+				}
+				else if (it1 != end()) {
+					elemBefore = it1.elem();
+					it1++;
+				}
+			}
+		}
+	}
+
+	/**
+	Clase interna que implementa un iterador sobre
+	la lista que permite recorrer la lista pero no
+	permite cambiarlos.
+	*/
+	class ConstIterator {
+	public:
+		void next() {
+			if (_act == NULL) throw InvalidAccessException();
+			_act = _act->_sig;
+		}
+
+		const T &elem() const {
+			if (_act == NULL) throw InvalidAccessException();
+			return _act->_elem;
+		}
+
+		bool operator==(const ConstIterator &other) const {
+			return _act == other._act;
+		}
+
+		bool operator!=(const ConstIterator &other) const {
+			return !(this->operator==(other));
+		}
+
+		const T& operator*() const {
+			return elem();
+		}
+
+		ConstIterator &operator++() {
+			next();
+			return *this;
+		}
+
+		ConstIterator operator++(int) {
+			ConstIterator ret(*this);
+			operator++();
+			return ret;
+		}
+
+	protected:
+		// Para que pueda construir objetos del
+		// tipo iterador
+		friend class List;
+
+		ConstIterator() : _act(NULL) {}
+		ConstIterator(Nodo *act) : _act(act) {}
+
+		// Puntero al nodo actual del recorrido
+		Nodo *_act;
+	};
+
+	/**
+	Clase interna que implementa un iterador sobre
+	la lista que permite recorrer la lista e incluso
+	alterar el valor de sus elementos.
+	*/
+	class Iterator {
+	public:
+		void next() {
+			if (_act == NULL) throw InvalidAccessException();
+			_act = _act->_sig;
+		}
+
+		const T &elem() const {
+			if (_act == NULL) throw InvalidAccessException();
+			return _act->_elem;
+		}
+
+		void set(const T &elem) const {
+			if (_act == NULL) throw InvalidAccessException();
+			_act->_elem = elem;
+		}
+
+		bool operator==(const Iterator &other) const {
+			return _act == other._act;
+		}
+
+		bool operator!=(const Iterator &other) const {
+			return !(this->operator==(other));
+		}
+
+		const T& operator*() const {
+			return elem();
+		}
+
+		T& operator*() {
+			// Código idéntico al de elem() porque éste es const,
+			// por lo que no se puede usar desde aquí.
+			if (_act == NULL) throw InvalidAccessException();
+			return _act->_elem;
+		}
+
+		Iterator &operator++() {
+			next();
+			return *this;
+		}
+
+		Iterator operator++(int) {
+			Iterator ret(*this);
+			operator++();
+			return ret;
+		}
+
+	protected:
+		// Para que pueda construir objetos del
+		// tipo iterador
+		friend class List;
+
+		Iterator() : _act(NULL) {}
+		Iterator(Nodo *act) : _act(act) {}
+
+		// Puntero al nodo actual del recorrido
+		Nodo *_act;
+	};
+
+	/**
+	Devuelve el iterador constante al principio de la lista.
+	@return iterador al principio de la lista;
+	coincidirá con cend() si la lista está vacía.
+	*/
+	ConstIterator cbegin() const {
+		return ConstIterator(_prim);
+	}
+
+	/**
+	@return Devuelve un iterador constante al final del recorrido
+	(fuera de éste).
+	*/
+	ConstIterator cend() const {
+		return ConstIterator(NULL);
+	}
+
+	/**
+	Devuelve el iterador no constante al principio de la lista.
+	@return iterador al principio de la lista;
+	coincidirá con end() si la lista está vacía.
+	*/
+	Iterator begin() {
+		return Iterator(_prim);
+	}
+
+	/**
+	@return Devuelve un iterador no constante al final del recorrido
+	(fuera de éste).
+	*/
+	Iterator end() const {
+		return Iterator(NULL);
+	}
+
+
+	/**
+	Permite eliminar de la lista el elemento
+	apuntado por el iterador que se pasa como parámetro.
+	El iterador recibido DEJA DE SER VÁLIDO. En su
+	lugar, deberá utilizarse el iterador devuelto, que
+	apuntará al siguiente elemento al borrado.
+	@param it Iterador colocado en el elemento que se
+	quiere borrar.
+	@return Nuevo iterador colocado en el elemento siguiente
+	al borrado (podría coincidir con final() si el
+	elemento que se borró era el último de la lista).
+	*/
+	Iterator erase(const Iterator &it) {
+		if (it._act == NULL)
+			throw InvalidAccessException();
+
+		// Cubrimos los casos especiales donde
+		// borramos alguno de los extremos
+		if (it._act == _prim) {
+			pop_front();
+			return Iterator(_prim);
+		}
+		else if (it._act == _ult) {
+			pop_back();
+			return Iterator(NULL);
+		}
+		else {
+			// El elemento a borrar es interno a la lista.
+			Nodo *sig = it._act->_sig;
+			borraElem(it._act);
+			return Iterator(sig);
+		}
+	}
+
+	/**
+	Método para insertar un elemento en la lista
+	en el punto marcado por el iterador. En concreto,
+	se añade _justo antes_ que el elemento actual. Es
+	decir, si it==l.primero(), el elemento insertado se
+	convierte en el primer elemento (y el iterador
+	apuntará al segundo). Si it==l.final(), el elemento
+	insertado será el último (e it seguirá apuntando
+	fuera del recorrido).
+	@param elem Valor del elemento a insertar.
+	@param it Punto en el que insertar el elemento.
+	*/
+	void insert(const T &elem, const Iterator &it) {
+
+		// Caso especial: ¿añadir al principio?
+		if (_prim == it._act) {
+			push_front(elem);
+		}
+		else
+			// Caso especial: ¿añadir al final?
+			if (it._act == NULL) {
+				push_back(elem);
+			}
+		// Caso normal
+			else {
+				insertaElem(elem, it._act->_ant, it._act);
+			}
+	}
+
+	// //
+	// MÉTODOS DE "FONTANERÍA" DE C++ QUE HACEN VERSÁTIL
+	// A LA CLASE
+	// //
+
+	/** Constructor copia */
+	List(const List<T> &other) : _prim(NULL), _ult(NULL) {
+		copia(other);
+	}
+
+	/** Operador de asignación */
+	List<T> &operator=(const List<T> &other) {
+		if (this != &other) {
+			libera();
+			copia(other);
+		}
+		return *this;
+	}
+
+	/** Operador de comparación. */
+	bool operator==(const List<T> &rhs) const {
+		if (_numElems != rhs._numElems)
+			return false;
+		Nodo *p1 = _prim;
+		Nodo *p2 = rhs._prim;
+		while ((p1 != NULL) && (p2 != NULL)) {
+			if (p1->_elem != p2->_elem)
+				return false;
+			p1 = p1->_sig;
+			p2 = p2->_sig;
+		}
+
+		return (p1 == NULL) && (p2 == NULL);
+	}
+
+	bool operator!=(const List<T> &rhs) const {
+		return !(*this == rhs);
+	}
+
+
+protected:
+
+	void libera() {
+		libera(_prim);
+		_prim = NULL;
+		_ult = NULL;
+	}
+
+	void copia(const List<T> &other) {
+		// En vez de trabajar con punteros en la inserción,
+		// usamos ponDr
+		_prim = 0;
+		_numElems = 0;
+
+		Nodo *act = other._prim;
+		while (act != NULL) {
+			push_back(act->_elem);
+			act = act->_sig;
+		}
+	}
+
+private:
+
+
+	/**
+	Inserta un elemento entre el nodo1 y el nodo2.
+	Devuelve el puntero al nodo creado.
+	Caso general: los dos nodos existen.
+	nodo1->_sig == nodo2
+	nodo2->_ant == nodo1
+	Casos especiales: alguno de los nodos no existe
+	nodo1 == NULL y/o nodo2 == NULL
+	*/
+	Nodo *insertaElem(const T &e, Nodo *nodo1, Nodo *nodo2) {
+		Nodo *nuevo = new Nodo(nodo1, e, nodo2);
+		if (nodo1 != NULL)
+			nodo1->_sig = nuevo;
+		if (nodo2 != NULL)
+			nodo2->_ant = nuevo;
+		_numElems++;
+		return nuevo;
+	}
+
+	/**
+	Elimina el nodo n. Si el nodo tiene nodos antes
+	o después, actualiza sus punteros anterior y siguiente.
+	Caso general: hay nodos anterior y siguiente.
+	Casos especiales: algunos de los nodos (anterior o siguiente
+	a n) no existen.
+	*/
+	void borraElem(Nodo *n) {
+		assert(n != NULL);
+		Nodo *ant = n->_ant;
+		Nodo *sig = n->_sig;
+		if (ant != NULL)
+			ant->_sig = sig;
+		if (sig != NULL)
+			sig->_ant = ant;
+		_numElems--;
+		delete n;
+	}
+
+	/**
+	Elimina todos los nodos de la lista enlazada cuyo
+	primer nodo se pasa como parámetro.
+	Se admite que el nodo sea NULL (no habrá nada que
+	liberar). En caso de pasarse un nodo válido,
+	su puntero al nodo anterior debe ser NULL (si no,
+	no sería el primero de la lista!).
+	*/
+	static void libera(Nodo *prim) {
+		assert(!prim || !prim->_ant);
+
+		while (prim != NULL) {
+			Nodo *aux = prim;
+			prim = prim->_sig;
+			delete aux;
+		}
+	}
+
+	// Puntero al primer y último elemento
+	Nodo *_prim, *_ult;
+
+	// Número de elementos (número de nodos entre _prim y _ult)
+	unsigned int _numElems;
+};
+
+#endif // __LIST_H
+
+#include <iostream>
+#include <sstream>
+using namespace std;
+
+List<int> merge(const List<int> &l1, const List<int> &l2);
+void fillList(List<int> &lista);
+
+int main() {
+	int n;
+
+	cin >> n;
+	cin.ignore();
+
+	while (n != 0) {
+		List<int> lista1, lista2, sol, saveLista;
+
+		fillList(lista1);
+
+		fillList(lista2);
+
+		lista1.ereaseRepeticiones();
+		lista2.ereaseRepeticiones();
+
+		if (!lista1.empty()) {
+			saveLista = lista1;
+			while (!saveLista.empty()) {
+				cout << saveLista.front();
+				saveLista.pop_front();
+				if (!saveLista.empty()) {
+					cout << " ";
+				}
+			}
+			cout << endl;
+		}
+
+		if (!lista2.empty()) {
+			saveLista = lista2;
+			while (!saveLista.empty()) {
+				cout << saveLista.front();
+				saveLista.pop_front();
+				if (!saveLista.empty()) {
+					cout << " ";
+				}
+			}
+			cout << endl;
+		}
+
+		sol = merge(lista1, lista2);
+		sol.ereaseRepeticiones();
+
+		while (!sol.empty()) {
+			cout << sol.front();
+			sol.pop_front();
+			if (!sol.empty()) {
+				cout << " ";
+			}
+		}
+		cout << endl;
+		n--;
+	}
+
+	return 0;
+}
+
+void fillList(List<int> &lista) {
+	string line, buff;
+
+	getline(cin, line);
+	stringstream ss(line);
+
+	int x;
+	while (ss >> buff) {
+		x = stoi(buff);
+		lista.push_back(x);
+	}
+}
+
+List<int> merge(const List<int> &l1, const List<int> &l2) {
+	List<int> sol;
+	List<int>::ConstIterator it1 = l1.cbegin();
+	List<int>::ConstIterator it2 = l2.cbegin();
+
+	while (it1 != l1.cend() && it2 != l2.cend()) { //en cuanto uno de los dos haya acabado de recorrerla salimos
+		if (it1.elem() < it2.elem()) {
+			sol.push_back(it1.elem());
+			it1++; //avanzamos el it1
+		}
+		else if (it1.elem() > it2.elem()) {
+			sol.push_back(it2.elem());
+			it2++;
+		}
+		else { //los dos números son iguales
+			sol.push_back(it1.elem());
+			it1++; //avanzamos el it1
+			sol.push_back(it2.elem());
+			it2++;
+		}
+	}
+
+	if (it1 != l1.cend()) { //si it1 no ha acabado de recorrer su lista
+		while (it1 != l1.cend()) {
+			sol.push_back(it1.elem());
+			it1++;
+		}
+	}
+	if (it2 != l2.cend()) {
+		while (it2 != l2.cend()) {
+			sol.push_back(it2.elem());
+			it2++;
+		}
+	}
+
+	return sol;
+}

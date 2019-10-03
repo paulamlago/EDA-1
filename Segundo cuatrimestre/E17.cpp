@@ -1,0 +1,1593 @@
+#include <iostream>
+#include <string>
+#include <sstream>
+using namespace std;
+
+#ifndef __EXCEPCIONES_H
+#define __EXCEPCIONES_H
+
+#include <string>
+#include <iosfwd>
+/**
+Clase de la que heredan todas las excepciones, y
+que proporciona el atributo que almacena el
+mensaje de error.
+*/
+class ExcepcionTAD {
+public:
+	ExcepcionTAD() {}
+	ExcepcionTAD(const std::string &msg) : _msg(msg) {}
+
+	const std::string msg() const { return _msg; }
+
+	friend std::ostream &operator<<(std::ostream &out, const ExcepcionTAD &e);
+
+protected:
+	std::string _msg;
+};
+
+inline std::ostream &operator<<(std::ostream &out, const ExcepcionTAD &e) {
+	out << e._msg;
+	return out;
+}
+
+
+// Macro para declarar las clases de tipo excepción
+// que heredan de ExcepcionConMensaje, para ahorrar
+// escribir muchas veces lo mismo...
+#define DECLARA_EXCEPCION(Excepcion) \
+class Excepcion : public ExcepcionTAD { \
+public: \
+Excepcion() {}; \
+Excepcion(const std::string &msg) : ExcepcionTAD(msg) {} \
+};
+
+/**
+Excepción generada por algunas operaciones de las pilas.
+*/
+DECLARA_EXCEPCION(EmptyStackException);
+
+/**
+Excepción generada por algunas operaciones de las pilas.
+*/
+DECLARA_EXCEPCION(FullStackException);
+
+/**
+Excepción generada por algunas de las operaciones de las colas.
+*/
+DECLARA_EXCEPCION(EmptyQueueException);
+
+/**
+Excepción generada por algunas operaciones de las colas dobles.
+*/
+DECLARA_EXCEPCION(EmptyDequeException);
+
+/**
+Excepción generada por algunas operaciones de las listas.
+*/
+DECLARA_EXCEPCION(EmptyListException);
+
+/**
+Excepción generada por accesos incorrectos a las listas
+(tanto a un número de elemento incorrecto como por
+mal manejo de los iteradores).
+*/
+DECLARA_EXCEPCION(InvalidAccessException);
+
+/**
+Excepción generada por algunas operaciones de los
+árboles binarios.
+*/
+DECLARA_EXCEPCION(EArbolVacio);
+
+/**
+Excepción generada por algunas operaciones de los
+diccionarios y árboles de búsqueda.
+*/
+DECLARA_EXCEPCION(EClaveErronea);
+
+#endif // __EXCEPCIONES_H
+
+
+#ifndef __LIST_H
+#define __LIST_H
+#include <cassert>
+
+/**
+Implementación del TAD Lista utilizando una lista doblemente enlazada.
+
+Las operaciones son:
+
+- EmptyList: -> List. Generadora implementada en el
+constructor sin parámetros.
+- Push_front: List, Elem -> List. Generadora.
+- push_back: List, Elem -> List. Modificadora.
+- front: List - -> Elem. Observadora parcial
+- pop_front: List - -> List. Modificadora parcial
+- back: List - -> Elem. Observadora parcial
+- pop_back: List - -> List. Modificadora parcial
+- empty: List -> Bool. Observadora
+- size: List -> Entero. Obervadora.
+- at: List, Entero - -> Elem. Observador parcial.
+
+@author Marco Antonio Gómez Martín
+*/
+template <class T>
+class List {
+private:
+	/**
+	Clase nodo que almacena internamente el elemento (de tipo T),
+	y dos punteros, uno al nodo anterior y otro al nodo siguiente.
+	Ambos punteros podrían ser NULL si el nodo es el primero
+	y/o último de la lista enlazada.
+	*/
+	class Nodo {
+	public:
+		Nodo() : _sig(NULL), _ant(NULL) {}
+		Nodo(const T &elem) : _elem(elem), _sig(NULL), _ant(NULL) {}
+		Nodo(Nodo *ant, const T &elem, Nodo *sig) :
+			_elem(elem), _sig(sig), _ant(ant) {}
+
+		T _elem;
+		Nodo *_sig;
+		Nodo *_ant;
+	};
+
+public:
+
+	/** Constructor; operación EmptyList. */
+	List() : _prim(NULL), _ult(NULL), _numElems(0) {}
+
+	/** Destructor; elimina la lista doblemente enlazada. */
+	~List() {
+		libera();
+	}
+
+	/**
+	Añade un nuevo elemento en la cabeza de la lista.
+	Operación generadora.
+
+	@param elem Elemento que se añade en la cabecera de
+	la lista.
+	*/
+	void push_front(const T &elem) {
+		_prim = insertaElem(elem, NULL, _prim);
+		if (_ult == NULL)
+			_ult = _prim;
+	}
+
+	/**
+	Añade un nuevo elemento al final de la lista (a la
+	"derecha"). Operación modificadora.
+
+	push_back(e, EmptyList) = Cons(e, EmptyList)
+	push_back(e, Push_front(x, xs)) = Push_front(x, push_back(e, xs))
+	*/
+	void push_back(const T &elem) {
+		_ult = insertaElem(elem, _ult, NULL);
+		if (_prim == NULL)
+			_prim = _ult;
+	}
+
+	/**
+	Devuelve el valor almacenado en la cabecera de la
+	lista. Es un error preguntar por el primero de
+	una lista vacía.
+
+	front(Push_front(x, xs)) = x
+	error front(EmptyList)
+
+	@return Elemento en la cabecera de la lista.
+	*/
+	const T &front() const {
+		if (empty())
+			throw EmptyListException();
+		return _prim->_elem;
+	}
+
+	/**
+	Devuelve el valor almacenado en la última posición
+	de la lista (a la derecha).
+	Es un error preguntar por el primero de una lista vacía.
+
+	back(Push_front(x, xs)) = x           SI empty(xs)
+	back(Push_front(x, xs)) = back(xs)  SI !empty(xs)
+	error back(EmptyList)
+
+	@return Elemento en la cola de la lista.
+	*/
+	const T &back() const {
+		if (empty())
+			throw EmptyListException();
+
+		return _ult->_elem;
+	}
+
+	/**
+	Elimina el primer elemento de la lista.
+	Es un error intentar obtener el resto de una lista vacía.
+
+	pop_front(Push_front(x, xs)) = xs
+	error pop_front(EmptyList)
+	*/
+	void pop_front() {
+		if (empty())
+			throw EmptyListException();
+
+		Nodo *aBorrar = _prim;
+		_prim = _prim->_sig;
+		borraElem(aBorrar);
+		if (_prim == NULL)
+			_ult = NULL;
+	}
+
+	/**
+	Elimina el último elemento de la lista.
+	Es un error intentar obtener el inicio de una lista vacía.
+
+	inicio(Push_front(x, EmptyList)) = EmptyList
+	inicio(Push_front(x, xs)) = Push_front(x, inicio(xs)) SI !empty(xs)
+	error inicio(EmptyList)
+	*/
+	void pop_back() {
+		if (empty())
+			throw EmptyListException();
+
+		Nodo *aBorrar = _ult;
+		_ult = _ult->_ant;
+		borraElem(aBorrar);
+		if (_ult == NULL)
+			_prim = NULL;
+	}
+
+	/**
+	Operación observadora para saber si una lista
+	tiene o no elementos.
+
+	empty(EmptyList) = true
+	empty(Push_front(x, xs)) = false
+
+	@return true si la lista no tiene elementos.
+	*/
+	bool empty() const {
+		return _prim == NULL;
+	}
+
+	/**
+	Devuelve el número de elementos que hay en la
+	lista.
+	size(EmptyList) = 0
+	size(Push_front(x, xs)) = 1 + size(xs)
+
+	@return Número de elementos.
+	*/
+	unsigned int size() const {
+		return _numElems;
+	}
+
+	/**
+	Devuelve el elemento i-ésimo de la lista, teniendo
+	en cuenta que el primer elemento (first())
+	es el elemento 0 y el último es size()-1,
+	es decir idx está en [0..size()-1].
+	Operación observadora parcial que puede fallar
+	si se da un índice incorrecto. El índice es
+	entero sin signo, para evitar que se puedan
+	pedir elementos negativos.
+
+	elem(0, Push_front(x, xs)) = x
+	elem(n, Push_front(x, xs)) = elem(n-1, xs) si n > 0
+	error elem(n, xs) si !( 0 <= n < size(xs) )
+	*/
+	const T &at(unsigned int idx) const {
+		if (idx >= _numElems)
+			throw InvalidAccessException();
+
+		Nodo *aux = _prim;
+		for (int i = 0; i < idx; ++i)
+			aux = aux->_sig;
+
+		return aux->_elem;
+	}
+
+	/**
+	Clase interna que implementa un iterador sobre
+	la lista que permite recorrer la lista pero no
+	permite cambiarlos.
+	*/
+	class ConstIterator {
+	public:
+		void next() {
+			if (_act == NULL) throw InvalidAccessException();
+			_act = _act->_sig;
+		}
+
+		const T &elem() const {
+			if (_act == NULL) throw InvalidAccessException();
+			return _act->_elem;
+		}
+
+		bool operator==(const ConstIterator &other) const {
+			return _act == other._act;
+		}
+
+		bool operator!=(const ConstIterator &other) const {
+			return !(this->operator==(other));
+		}
+
+		const T& operator*() const {
+			return elem();
+		}
+
+		ConstIterator &operator++() {
+			next();
+			return *this;
+		}
+
+		ConstIterator operator++(int) {
+			ConstIterator ret(*this);
+			operator++();
+			return ret;
+		}
+
+	protected:
+		// Para que pueda construir objetos del
+		// tipo iterador
+		friend class List;
+
+		ConstIterator() : _act(NULL) {}
+		ConstIterator(Nodo *act) : _act(act) {}
+
+		// Puntero al nodo actual del recorrido
+		Nodo *_act;
+	};
+
+	/**
+	Clase interna que implementa un iterador sobre
+	la lista que permite recorrer la lista e incluso
+	alterar el valor de sus elementos.
+	*/
+	class Iterator {
+	public:
+		void next() {
+			if (_act == NULL) throw InvalidAccessException();
+			_act = _act->_sig;
+		}
+
+		const T &elem() const {
+			if (_act == NULL) throw InvalidAccessException();
+			return _act->_elem;
+		}
+
+		void set(const T &elem) const {
+			if (_act == NULL) throw InvalidAccessException();
+			_act->_elem = elem;
+		}
+
+		bool operator==(const Iterator &other) const {
+			return _act == other._act;
+		}
+
+		bool operator!=(const Iterator &other) const {
+			return !(this->operator==(other));
+		}
+
+		const T& operator*() const {
+			return elem();
+		}
+
+		T& operator*() {
+			// Código idéntico al de elem() porque éste es const,
+			// por lo que no se puede usar desde aquí.
+			if (_act == NULL) throw InvalidAccessException();
+			return _act->_elem;
+		}
+
+		Iterator &operator++() {
+			next();
+			return *this;
+		}
+
+		Iterator operator++(int) {
+			Iterator ret(*this);
+			operator++();
+			return ret;
+		}
+
+	protected:
+		// Para que pueda construir objetos del
+		// tipo iterador
+		friend class List;
+
+		Iterator() : _act(NULL) {}
+		Iterator(Nodo *act) : _act(act) {}
+
+		// Puntero al nodo actual del recorrido
+		Nodo *_act;
+	};
+
+	/**
+	Devuelve el iterador constante al principio de la lista.
+	@return iterador al principio de la lista;
+	coincidirá con cend() si la lista está vacía.
+	*/
+	ConstIterator cbegin() const {
+		return ConstIterator(_prim);
+	}
+
+	/**
+	@return Devuelve un iterador constante al final del recorrido
+	(fuera de éste).
+	*/
+	ConstIterator cend() const {
+		return ConstIterator(NULL);
+	}
+
+	/**
+	Devuelve el iterador no constante al principio de la lista.
+	@return iterador al principio de la lista;
+	coincidirá con end() si la lista está vacía.
+	*/
+	Iterator begin() {
+		return Iterator(_prim);
+	}
+
+	/**
+	@return Devuelve un iterador no constante al final del recorrido
+	(fuera de éste).
+	*/
+	Iterator end() const {
+		return Iterator(NULL);
+	}
+
+
+	/**
+	Permite eliminar de la lista el elemento
+	apuntado por el iterador que se pasa como parámetro.
+	El iterador recibido DEJA DE SER VÁLIDO. En su
+	lugar, deberá utilizarse el iterador devuelto, que
+	apuntará al siguiente elemento al borrado.
+	@param it Iterador colocado en el elemento que se
+	quiere borrar.
+	@return Nuevo iterador colocado en el elemento siguiente
+	al borrado (podría coincidir con final() si el
+	elemento que se borró era el último de la lista).
+	*/
+	Iterator erase(const Iterator &it) {
+		if (it._act == NULL)
+			throw InvalidAccessException();
+
+		// Cubrimos los casos especiales donde
+		// borramos alguno de los extremos
+		if (it._act == _prim) {
+			pop_front();
+			return Iterator(_prim);
+		}
+		else if (it._act == _ult) {
+			pop_back();
+			return Iterator(NULL);
+		}
+		else {
+			// El elemento a borrar es interno a la lista.
+			Nodo *sig = it._act->_sig;
+			borraElem(it._act);
+			return Iterator(sig);
+		}
+	}
+
+	/**
+	Método para insertar un elemento en la lista
+	en el punto marcado por el iterador. En concreto,
+	se añade _justo antes_ que el elemento actual. Es
+	decir, si it==l.primero(), el elemento insertado se
+	convierte en el primer elemento (y el iterador
+	apuntará al segundo). Si it==l.final(), el elemento
+	insertado será el último (e it seguirá apuntando
+	fuera del recorrido).
+	@param elem Valor del elemento a insertar.
+	@param it Punto en el que insertar el elemento.
+	*/
+	void insert(const T &elem, const Iterator &it) {
+
+		// Caso especial: ¿añadir al principio?
+		if (_prim == it._act) {
+			push_front(elem);
+		}
+		else
+			// Caso especial: ¿añadir al final?
+			if (it._act == NULL) {
+				push_back(elem);
+			}
+		// Caso normal
+			else {
+				insertaElem(elem, it._act->_ant, it._act);
+			}
+	}
+
+	// //
+	// MÉTODOS DE "FONTANERÍA" DE C++ QUE HACEN VERSÁTIL
+	// A LA CLASE
+	// //
+
+	/** Constructor copia */
+	List(const List<T> &other) : _prim(NULL), _ult(NULL) {
+		copia(other);
+	}
+
+	/** Operador de asignación */
+	List<T> &operator=(const List<T> &other) {
+		if (this != &other) {
+			libera();
+			copia(other);
+		}
+		return *this;
+	}
+
+	/** Operador de comparación. */
+	bool operator==(const List<T> &rhs) const {
+		if (_numElems != rhs._numElems)
+			return false;
+		Nodo *p1 = _prim;
+		Nodo *p2 = rhs._prim;
+		while ((p1 != NULL) && (p2 != NULL)) {
+			if (p1->_elem != p2->_elem)
+				return false;
+			p1 = p1->_sig;
+			p2 = p2->_sig;
+		}
+
+		return (p1 == NULL) && (p2 == NULL);
+	}
+
+	bool operator!=(const List<T> &rhs) const {
+		return !(*this == rhs);
+	}
+
+
+protected:
+
+	void libera() {
+		libera(_prim);
+		_prim = NULL;
+		_ult = NULL;
+	}
+
+	void copia(const List<T> &other) {
+		// En vez de trabajar con punteros en la inserción,
+		// usamos ponDr
+		_prim = 0;
+		_numElems = 0;
+
+		Nodo *act = other._prim;
+		while (act != NULL) {
+			push_back(act->_elem);
+			act = act->_sig;
+		}
+	}
+
+private:
+
+
+	/**
+	Inserta un elemento entre el nodo1 y el nodo2.
+	Devuelve el puntero al nodo creado.
+	Caso general: los dos nodos existen.
+	nodo1->_sig == nodo2
+	nodo2->_ant == nodo1
+	Casos especiales: alguno de los nodos no existe
+	nodo1 == NULL y/o nodo2 == NULL
+	*/
+	Nodo *insertaElem(const T &e, Nodo *nodo1, Nodo *nodo2) {
+		Nodo *nuevo = new Nodo(nodo1, e, nodo2);
+		if (nodo1 != NULL)
+			nodo1->_sig = nuevo;
+		if (nodo2 != NULL)
+			nodo2->_ant = nuevo;
+		_numElems++;
+		return nuevo;
+	}
+
+	/**
+	Elimina el nodo n. Si el nodo tiene nodos antes
+	o después, actualiza sus punteros anterior y siguiente.
+	Caso general: hay nodos anterior y siguiente.
+	Casos especiales: algunos de los nodos (anterior o siguiente
+	a n) no existen.
+	*/
+	void borraElem(Nodo *n) {
+		assert(n != NULL);
+		Nodo *ant = n->_ant;
+		Nodo *sig = n->_sig;
+		if (ant != NULL)
+			ant->_sig = sig;
+		if (sig != NULL)
+			sig->_ant = ant;
+		_numElems--;
+		delete n;
+	}
+
+	/**
+	Elimina todos los nodos de la lista enlazada cuyo
+	primer nodo se pasa como parámetro.
+	Se admite que el nodo sea NULL (no habrá nada que
+	liberar). En caso de pasarse un nodo válido,
+	su puntero al nodo anterior debe ser NULL (si no,
+	no sería el primero de la lista!).
+	*/
+	static void libera(Nodo *prim) {
+		assert(!prim || !prim->_ant);
+
+		while (prim != NULL) {
+			Nodo *aux = prim;
+			prim = prim->_sig;
+			delete aux;
+		}
+	}
+
+	// Puntero al primer y último elemento
+	Nodo *_prim, *_ult;
+
+	// Número de elementos (número de nodos entre _prim y _ult)
+	unsigned int _numElems;
+};
+
+#endif // __LIST_H
+
+#ifndef __STACK_H
+#define __STACK_H
+
+/**
+Implementación del TAD Pila utilizando vectores dinámicos.
+
+Las operaciones son:
+
+- EmptyStack: -> Stack. Generadora implementada en el
+constructor sin parámetros.
+- Push: Stack, Elem -> Stack. Generadora
+- pop: Stack - -> Stack. Modificadora parcial.
+- top: Stack - -> Elem. Observadora parcial.
+- empty: Stack -> Bool. Observadora.
+- size: Stack -> Entero. Observadora.
+
+@author Marco Antonio Gómez Martín
+*/
+template <class T>
+class Stack {
+public:
+
+	/** Tamaño inicial del vector dinámico. */
+	static const int TAM_INICIAL = 10;
+
+	/** Constructor; operación EmptyStack */
+	Stack() {
+		inicia();
+	}
+
+	/** Destructor; elimina el vector. */
+	~Stack() {
+		libera();
+	}
+
+	/**
+	Apila un elemento. Operación generadora.
+
+	@param elem Elemento a apilar.
+	*/
+	void push(const T &elem) {
+		_v[_numElems] = elem;
+		_numElems++;
+		if (_numElems == _tam)
+			amplia();
+	}
+
+	/**
+	Desapila un elemento. Operación modificadora parcial,
+	que falla si la pila está vacía.
+
+	pop(Push(elem, p)) = p
+	error: pop(EmptyStack)
+	*/
+	void pop() {
+		if (empty())
+			throw EmptyStackException();
+		--_numElems;
+	}
+
+	/**
+	Devuelve el elemento en la cima de la pila. Operación
+	observadora parcial, que falla si la pila está vacía.
+
+	top(Push(elem, p) = elem
+	error: top(EmptyStack)
+
+	@return Elemento en la cima de la pila.
+	*/
+	const T &top() const {
+		if (empty())
+			throw EmptyStackException();
+		return _v[_numElems - 1];
+	}
+
+	/**
+	Devuelve true si la pila no tiene ningún elemento.
+
+	empty(EmptyStack) = true
+	empty(Push(elem, p)) = false
+
+	@return true si la pila no tiene ningún elemento.
+	*/
+	bool empty() const {
+		return _numElems == 0;
+	}
+
+	/**
+	Devuelve el número de elementos que hay en la
+	pila.
+	size(EmptyStack) = 0
+	size(Push(elem, p)) = 1 + size(p)
+
+	@return Número de elementos.
+	*/
+	int size() const {
+		return _numElems;
+	}
+
+	// //
+	// MÉTODOS DE "FONTANERÍA" DE C++ QUE HACEN VERSÁTIL
+	// A LA CLASE
+	// //
+
+	/** Constructor copia */
+	Stack(const Stack<T> &other) {
+		copia(other);
+	}
+
+	/** Operador de asignación */
+	Stack<T> &operator=(const Stack<T> &other) {
+		if (this != &other) {
+			libera();
+			copia(other);
+		}
+		return *this;
+	}
+
+	/** Operador de comparación. */
+	bool operator==(const Stack<T> &rhs) const {
+		if (_numElems != rhs._numElems)
+			return false;
+		for (unsigned int i = 0; i < _numElems; ++i)
+			if (_v[i] != rhs._v[i])
+				return false;
+		return true;
+	}
+
+	bool operator!=(const Stack<T> &rhs) const {
+		return !(*this == rhs);
+	}
+
+protected:
+
+	void inicia() {
+		_v = new T[TAM_INICIAL];
+		_tam = TAM_INICIAL;
+		_numElems = 0;
+	}
+
+	void libera() {
+		delete[]_v;
+		_v = NULL;
+	}
+
+	void copia(const Stack &other) {
+		_tam = other._numElems + TAM_INICIAL;
+		_numElems = other._numElems;
+		_v = new T[_tam];
+		for (unsigned int i = 0; i < _numElems; ++i)
+			_v[i] = other._v[i];
+	}
+
+	void amplia() {
+		T *viejo = _v;
+		_tam *= 2;
+		_v = new T[_tam];
+
+		for (unsigned int i = 0; i < _numElems; ++i)
+			_v[i] = viejo[i];
+
+		delete[]viejo;
+	}
+
+private:
+
+	/** Puntero al array que contiene los datos. */
+	T *_v;
+
+	/** Tamaño del vector _v. */
+	unsigned int _tam;
+
+	/** Número de elementos reales guardados. */
+	unsigned int _numElems;
+};
+
+#endif // __STACK_H
+
+#ifndef __TREEMAP_H
+#define __TREEMAP_H
+
+
+/**
+Implementación dinámica del TAD Dictionary utilizando
+árboles de búsqueda (no auto-balanceados).
+
+Las operaciones son:
+
+- TreeMapVacio: operación generadora que construye
+un árbol de búsqueda vacío.
+
+- Insert(clave, valor): generadora que añade una
+nueva pareja (clave, valor) al árbol. Si la
+clave ya estaba se sustituye el valor.
+
+- erase(clave): operación modificadora. Elimina la
+clave del árbol de búsqueda.  Si la clave no está,
+la operación no tiene efecto.
+
+- at(clave): operación observadora que devuelve
+el valor asociado a una clave. Es un error preguntar
+por una clave que no existe.
+
+- contains(clave): operación observadora. Sirve para
+averiguar si se ha introducido una clave en el
+árbol.
+
+- empty(): operacion observadora que indica si
+el árbol de búsqueda tiene alguna clave introducida.
+
+@author Marco Antonio Gómez Martín
+*/
+template <class Clave, class Valor>
+class TreeMap {
+private:
+	/**
+	Clase nodo que almacena internamente la pareja (clave, valor)
+	y los punteros al hijo izquierdo y al hijo derecho.
+	*/
+	class Nodo {
+	public:
+		Nodo() : _iz(NULL), _dr(NULL) {}
+		Nodo(const Clave &clave, const Valor &valor)
+			: _clave(clave), _valor(valor), _iz(NULL), _dr(NULL) {}
+		Nodo(Nodo *iz, const Clave &clave, const Valor &valor, Nodo *dr)
+			: _clave(clave), _valor(valor), _iz(iz), _dr(dr) {}
+
+		Clave _clave;
+		Valor _valor;
+		Nodo *_iz;
+		Nodo *_dr;
+	};
+
+public:
+
+	/** Constructor; operacion EmptyTreeMap */
+	TreeMap() : _ra(NULL) {
+	}
+
+	/** Destructor; elimina la estructura jerárquica de nodos. */
+	~TreeMap() {
+		libera();
+		_ra = NULL;
+	}
+
+	/**
+	Operación generadora que añade una nueva clave/valor
+	a un árbol de búsqueda.
+	@param clave Clave nueva.
+	@param valor Valor asociado a esa clave. Si la clave
+	ya se había insertado previamente, sustituimos el valor
+	viejo por el nuevo.
+	*/
+	void insert(const Clave &clave, const Valor &valor) {
+		_ra = insertaAux(clave, valor, _ra);
+	}
+
+	/**
+	Operación modificadora que elimina una clave del árbol.
+	Si la clave no existía la operación no tiene efecto.
+
+	erase(elem, EmptyTreeMap) = TreeMapVacio
+	erase(e, insert(c, v, arbol)) =
+	inserta(c, v, erase(e, arbol)) si c != e
+	erase(e, insert(c, v, arbol)) = erase(e, arbol) si c == e
+
+	@param clave Clave a eliminar.
+	*/
+	void erase(const Clave &clave) {
+		_ra = borraAux(_ra, clave);
+	}
+
+	/**
+	Operación observadora que devuelve el valor asociado
+	a una clave dada.
+
+	at(e, insert(c, v, arbol)) = v si e == c
+	at(e, insert(c, v, arbol)) = at(e, arbol) si e != c
+	error at(EmptyTreeMap)
+
+	@param clave Clave por la que se pregunta.
+	*/
+	const Valor &at(const Clave &clave) const {
+		Nodo *p = buscaAux(_ra, clave);
+		if (p == NULL)
+			throw EClaveErronea();
+
+		return p->_valor;
+	}
+
+	/**
+	Operación observadora que permite averiguar si una clave
+	determinada está o no en el árbol de búsqueda.
+
+	contains(e, EmptyTreeMap) = false
+	contains(e, insert(c, v, arbol)) = true si e == c
+	contains(e, insert(c, v, arbol)) = contains(e, arbol) si e != c
+
+	@param clave Clave por la que se pregunta.
+	@return true si el diccionario contiene un valor asociado
+	a esa clave.
+	*/
+	bool contains(const Clave &clave) const {
+		return (buscaAux(_ra, clave) != NULL) ? true : false;
+	}
+
+	/**
+	Operación observadora que devuelve si el árbol
+	es vacío (no contiene elementos) o no.
+
+	empty(EmptyTreeMap) = true
+	empty(insert(c, v, arbol)) = false
+	*/
+	bool empty() const {
+		return _ra == NULL;
+	}
+
+	/**
+	Sobrecarga del operador [] que permite acceder
+	al valor asociado a una clave y modificarlo.
+	Si el elemento buscado no estaba, se inserta uno
+	con el valor por defecto del tipo Valor.
+	*/
+	Valor &operator[](const Clave &clave) {
+		// Buscamos. Sería mejor hacerlo in-line; así en
+		// caso de no encontrarlo no hace falta buscar otra
+		// vez dónde insertar la clave.
+		Nodo * ret = buscaAux(_ra, clave);
+		if (ret == NULL) {
+			// No está, lo añadimos y vemos dónde
+			// quedó. Hay formas más eficientes para evitar
+			// recorridos por el árbol.
+			insert(clave, Valor());
+			ret = buscaAux(_ra, clave);
+		}
+
+		return ret->_valor;
+	}
+
+	// //
+	// ITERADOR CONSTANTE Y FUNCIONES RELACIONADAS
+	// //
+
+	/**
+	Clase interna que implementa un iterador sobre
+	la lista que permite recorrer el árbol pero no
+	permite modificarlo.
+	*/
+	class ConstIterator {
+	public:
+		void next() {
+			if (_act == NULL) throw InvalidAccessException();
+
+			// Si hay hijo derecho, saltamos al primero
+			// en inorden del hijo derecho
+			if (_act->_dr != NULL)
+				_act = primeroInOrden(_act->_dr);
+			else {
+				// Si no, vamos al primer ascendiente
+				// no visitado. Para eso consultamos
+				// la pila; si ya está vacía, no quedan
+				// ascendientes por visitar
+				if (_ascendientes.empty())
+					_act = NULL;
+				else {
+					_act = _ascendientes.top();
+					_ascendientes.pop();
+				}
+			}
+		}
+
+		const Clave &key() const {
+			if (_act == NULL) throw InvalidAccessException();
+			return _act->_clave;
+		}
+
+		const Valor &value() const {
+			if (_act == NULL) throw InvalidAccessException();
+			return _act->_valor;
+		}
+
+		bool operator==(const ConstIterator &other) const {
+			return _act == other._act;
+		}
+
+		bool operator!=(const ConstIterator &other) const {
+			return !(this->operator==(other));
+		}
+
+		ConstIterator &operator++() {
+			next();
+			return *this;
+		}
+
+		ConstIterator operator++(int) {
+			ConstIterator ret(*this);
+			operator++();
+			return ret;
+		}
+
+	protected:
+		// Para que pueda construir objetos del
+		// tipo iterador
+		friend class TreeMap;
+
+		ConstIterator() : _act(NULL) {}
+		ConstIterator(Nodo *act) {
+			_act = primeroInOrden(act);
+		}
+
+		/**
+		Busca el primer elemento en inorden de
+		la estructura jerárquica de nodos pasada
+		como parámetro; va apilando sus ascendientes
+		para poder "ir hacia atrás" cuando sea necesario.
+		@param p Puntero a la raíz de la subestructura.
+		*/
+		Nodo *primeroInOrden(Nodo *p) {
+			if (p == NULL)
+				return NULL;
+
+			while (p->_iz != NULL) {
+				_ascendientes.push(p);
+				p = p->_iz;
+			}
+			return p;
+		}
+
+		// Puntero al nodo actual del recorrido
+		// NULL si hemos llegado al final.
+		Nodo *_act;
+
+		// Ascendientes del nodo actual
+		// aún por visitar
+		Stack<Nodo*> _ascendientes;
+	};
+
+	/**
+	Devuelve el iterador constante al principio del
+	diccionario (clave más pequeña).
+	@return iterador al principio del recorrido;
+	coincidirá con cend() si el diccionario está vacío.
+	*/
+	ConstIterator cbegin() const {
+		return ConstIterator(_ra);
+	}
+
+	/**
+	@return Devuelve un iterador al final del recorrido
+	(fuera de éste).
+	*/
+	ConstIterator cend() const {
+		return ConstIterator(NULL);
+	}
+
+	ConstIterator find(const Clave &c) const {
+		Stack<Nodo*> ascendientes;
+		Nodo *p = _ra;
+		while ((p != NULL) && (p->_clave != c)) {
+			if (p->_clave > c) {
+				ascendientes.push(p);
+				p = p->_iz;
+			}
+			else
+				p = p->_dr;
+		}
+		ConstIterator ret;
+		ret._act = p;
+		if (p != NULL)
+			ret._ascendientes = ascendientes;
+		return ret;
+	}
+
+	// //
+	// ITERADOR NO CONSTANTE Y FUNCIONES RELACIONADAS
+	// //
+
+	/**
+	Clase interna que implementa un iterador sobre
+	la árbol de búsqueda que permite recorrer la lista e incluso
+	alterar el valor de sus elementos.
+	*/
+	class Iterator {
+	public:
+		void next() {
+			if (_act == NULL) throw InvalidAccessException();
+
+			// Si hay hijo derecho, saltamos al primero
+			// en inorden del hijo derecho
+			if (_act->_dr != NULL)
+				_act = primeroInOrden(_act->_dr);
+			else {
+				// Si no, vamos al primer ascendiente
+				// no visitado. Para eso consultamos
+				// la pila; si ya está vacía, no quedan
+				// ascendientes por visitar
+				if (_ascendientes.empty())
+					_act = NULL;
+				else {
+					_act = _ascendientes.top();
+					_ascendientes.pop();
+				}
+			}
+		}
+
+		const Clave &key() const {
+			if (_act == NULL) throw InvalidAccessException();
+			return _act->_clave;
+		}
+
+		Valor &value() const {
+			if (_act == NULL) throw InvalidAccessException();
+			return _act->_valor;
+		}
+
+		bool operator==(const Iterator &other) const {
+			return _act == other._act;
+		}
+
+		bool operator!=(const Iterator &other) const {
+			return !(this->operator==(other));
+		}
+
+		Iterator &operator++() {
+			next();
+			return *this;
+		}
+
+		Iterator operator++(int) {
+			Iterator ret(*this);
+			operator++();
+			return ret;
+		}
+
+	protected:
+		// Para que pueda construir objetos del
+		// tipo iterador
+		friend class TreeMap;
+
+		Iterator() : _act(NULL) {}
+		Iterator(Nodo *act) {
+			_act = primeroInOrden(act);
+		}
+
+		/**
+		Busca el primer elemento en inorden de
+		la estructura jerárquica de nodos pasada
+		como parámetro; va apilando sus ascendientes
+		para poder "ir hacia atrás" cuando sea necesario.
+		@param p Puntero a la raíz de la subestructura.
+		*/
+		Nodo *primeroInOrden(Nodo *p) {
+			if (p == NULL)
+				return NULL;
+
+			while (p->_iz != NULL) {
+				_ascendientes.push(p);
+				p = p->_iz;
+			}
+			return p;
+		}
+
+		// Puntero al nodo actual del recorrido
+		// NULL si hemos llegado al final.
+		Nodo *_act;
+
+		// Ascendientes del nodo actual
+		// aún por visitar
+		Stack<Nodo*> _ascendientes;
+	};
+
+	/**
+	Devuelve el iterador al principio de la lista.
+	@return iterador al principio de la lista;
+	coincidirá con final() si la lista está vacía.
+	*/
+	Iterator begin() {
+		return Iterator(_ra);
+	}
+
+	/**
+	@return Devuelve un iterador al final del recorrido
+	(fuera de éste).
+	*/
+	Iterator end() const {
+		return Iterator(NULL);
+	}
+
+	Iterator find(const Clave &c) {
+		Stack<Nodo*> ascendientes;
+		Nodo *p = _ra;
+		while ((p != NULL) && (p->_clave != c)) {
+			if (p->_clave > c) {
+				ascendientes.push(p);
+				p = p->_iz;
+			}
+			else
+				p = p->_dr;
+		}
+		Iterator ret;
+		ret._act = p;
+		if (p != NULL)
+			ret._ascendientes = ascendientes;
+		return ret;
+	}
+
+
+	// //
+	// MÉTODOS DE "FONTANERÍA" DE C++ QUE HACEN VERSÁTIL
+	// A LA CLASE
+	// //
+
+	/** Constructor copia */
+	TreeMap(const TreeMap<Clave, Valor> &other) : _ra(NULL) {
+		copia(other);
+	}
+
+	/** Operador de asignación */
+	TreeMap<Clave, Valor> &operator=(const TreeMap<Clave, Valor> &other) {
+		if (this != &other) {
+			libera();
+			copia(other);
+		}
+		return *this;
+	}
+
+protected:
+
+	/**
+	Constructor protegido que crea un árbol
+	a partir de una estructura jerárquica de nodos
+	previamente creada.
+	Se utiliza en hijoIz e hijoDr.
+	*/
+	TreeMap(Nodo *raiz) : _ra(raiz) {
+	}
+
+	void libera() {
+		libera(_ra);
+	}
+
+	void copia(const TreeMap &other) {
+		_ra = copiaAux(other._ra);
+	}
+
+private:
+
+	/**
+	Elimina todos los nodos de una estructura arbórea
+	que comienza con el puntero ra.
+	Se admite que el nodo sea NULL (no habrá nada que
+	liberar).
+	*/
+	static void libera(Nodo *ra) {
+		if (ra != NULL) {
+			libera(ra->_iz);
+			libera(ra->_dr);
+			delete ra;
+		}
+	}
+
+	/**
+	Copia la estructura jerárquica de nodos pasada
+	como parámetro (puntero a su raiz) y devuelve un
+	puntero a una nueva estructura jerárquica, copia
+	de anterior (y que, por tanto, habrá que liberar).
+	*/
+	static Nodo *copiaAux(Nodo *ra) {
+		if (ra == NULL)
+			return NULL;
+
+		return new Nodo(copiaAux(ra->_iz),
+			ra->_clave, ra->_valor,
+			copiaAux(ra->_dr));
+	}
+
+	/**
+	Inserta una pareja (clave, valor) en la estructura
+	jerárquica que comienza en el puntero pasado como parámetro.
+	Ese puntero se admite que sea NULL, por lo que se creará
+	un nuevo nodo que pasará a ser la nueva raíz de esa
+	estructura jerárquica. El método devuelve un puntero a la
+	raíz de la estructura modificada. En condiciones normales
+	coincidirá con el parámetro recibido; sólo cambiará si
+	la estructura era vacía.
+	@param clave Clave a insertar. Si ya aparecía en la
+	estructura de nodos, se sobreescribe el valor.
+	@param valor Valor a insertar.
+	@param p Puntero al nodo raíz donde insertar la pareja.
+	@return Nueva raíz (o p si no cambia).
+	*/
+	static Nodo *insertaAux(const Clave &clave, const Valor &valor, Nodo *p) {
+
+		if (p == NULL) {
+			return new Nodo(clave, valor);
+		}
+		else if (p->_clave == clave) {
+			p->_valor = valor;
+			return p;
+		}
+		else if (clave < p->_clave) {
+			p->_iz = insertaAux(clave, valor, p->_iz);
+			return p;
+		}
+		else { // (clave > p->_clave)
+			p->_dr = insertaAux(clave, valor, p->_dr);
+			return p;
+		}
+	}
+
+	/**
+	Busca una clave en la estructura jerárquica de
+	nodos cuya raíz se pasa como parámetro, y devuelve
+	el nodo en la que se encuentra (o NULL si no está).
+	@param p Puntero a la raíz de la estructura de nodos
+	@param clave Clave a buscar
+	*/
+	static Nodo *buscaAux(Nodo *p, const Clave &clave) {
+		if (p == NULL)
+			return NULL;
+
+		if (p->_clave == clave)
+			return p;
+
+		if (clave < p->_clave)
+			return buscaAux(p->_iz, clave);
+		else
+			return buscaAux(p->_dr, clave);
+	}
+
+	/**
+	Elimina (si existe) la clave/valor de la estructura jerárquica
+	de nodos apuntada por p. Si la clave aparecía en la propia raíz,
+	ésta cambiará, por lo que se devuelve la nueva raíz. Si no cambia
+	se devuelve p.
+
+	@param p Raíz de la estructura jerárquica donde borrar la clave.
+	@param clave Clave a borrar.
+	@return Nueva raíz de la estructura, tras el borrado. Si la raíz
+	no cambia, se devuelve el propio p.
+	*/
+	static Nodo *borraAux(Nodo *p, const Clave &clave) {
+
+		if (p == NULL)
+			return NULL;
+
+		if (clave == p->_clave) {
+			return borraRaiz(p);
+		}
+		else if (clave < p->_clave) {
+			p->_iz = borraAux(p->_iz, clave);
+			return p;
+		}
+		else { // clave > p->_clave
+			p->_dr = borraAux(p->_dr, clave);
+			return p;
+		}
+	}
+
+	/**
+	Borra la raíz de la estructura jerárquica de nodos
+	y devuelve el puntero a la nueva raíz que garantiza
+	que la estructura sigue siendo válida para un árbol de
+	búsqueda (claves ordenadas).
+	*/
+	static Nodo *borraRaiz(Nodo *p) {
+
+		Nodo *aux;
+
+		// Si no hay hijo izquierdo, la raíz pasa a ser
+		// el hijo derecho
+		if (p->_iz == NULL) {
+			aux = p->_dr;
+			delete p;
+			return aux;
+		}
+		else
+			// Si no hay hijo derecho, la raíz pasa a ser
+			// el hijo izquierdo
+			if (p->_dr == NULL) {
+				aux = p->_iz;
+				delete p;
+				return aux;
+			}
+			else {
+				// Convertimos el elemento más pequeño del hijo derecho
+				// en la raíz.
+				return mueveMinYBorra(p);
+			}
+	}
+
+	/**
+	Método auxiliar para el borrado; recibe un puntero a la
+	raíz a borrar. Busca el elemento más pequeño del hijo derecho
+	que se convertirá en la raíz (que devolverá), borra la antigua
+	raíz (p) y "cose" todos los punteros, de forma que ahora:
+
+	- El mínimo pasa a ser la raíz, cuyo hijo izquierdo y
+	derecho eran los hijos izquierdo y derecho de la raíz
+	antigua.
+	- El hijo izquierdo del padre del elemento más pequeño
+	pasa a ser el antiguo hijo derecho de ese mínimo.
+	*/
+	static Nodo *mueveMinYBorra(Nodo *p) {
+
+		// Vamos bajando hasta que encontramos el elemento
+		// más pequeño (aquel que no tiene hijo izquierdo).
+		// Vamos guardando también el padre (que será null
+		// si el hijo derecho es directamente el elemento
+		// más pequeño).
+		Nodo *padre = NULL;
+		Nodo *aux = p->_dr;
+		while (aux->_iz != NULL) {
+			padre = aux;
+			aux = aux->_iz;
+		}
+
+		// aux apunta al elemento más pequeño.
+		// padre apunta a su padre (si el nodo es hijo izquierdo)
+
+		// Dos casos dependiendo de si el padre del nodo con 
+		// el mínimo es o no la raíz a eliminar
+		// (=> padre != NULL)
+		if (padre != NULL) {
+			padre->_iz = aux->_dr;
+			aux->_iz = p->_iz;
+			aux->_dr = p->_dr;
+		}
+		else {
+			aux->_iz = p->_iz;
+		}
+
+		delete p;
+		return aux;
+	}
+
+	/**
+	Puntero a la raíz de la estructura jerárquica
+	de nodos.
+	*/
+	Nodo *_ra;
+};
+
+#endif // __TREEMAP_H
+
+TreeMap<string, int> fillMap();
+void changes(List<string> &nuevos, List<string> &borrados, List<string> &changed, TreeMap<string, int>::ConstIterator dant, TreeMap<string, int>::ConstIterator end, TreeMap<string, int> nuevo);
+
+int main() {
+	int n;
+	cin >> n;
+
+	cin.ignore();
+
+	while (n != 0) {
+		TreeMap<string, int> antiguo, nuevo;
+
+		antiguo = fillMap();
+
+		nuevo = fillMap();
+
+		List<string> nuevos, borrados, changed;
+		TreeMap<string, int>::ConstIterator it = antiguo.cbegin();
+		TreeMap<string, int>::ConstIterator itend = antiguo.cend();
+
+		changes(nuevos, borrados, changed, it, itend, nuevo);
+
+		if (!nuevos.empty() || !borrados.empty() || !changed.empty()) {
+			List<string>::ConstIterator itListas = nuevos.cbegin();
+			List<string>::ConstIterator itendListas = nuevos.cend();
+
+			if (!nuevos.empty()) {
+				cout << "+ ";
+				while (itListas != itendListas) {
+					cout << itListas.elem() << " ";
+					itListas.next();
+				}
+				cout << endl;
+			}
+
+			if (!borrados.empty()) {
+				itListas = borrados.cbegin();
+				itendListas = borrados.cend();
+
+				cout << "- ";
+				while (itListas != itendListas) {
+					cout << itListas.elem() << " ";
+					itListas.next();
+				}
+				cout << endl;
+			}
+
+			if (!changed.empty()) {
+				itListas = changed.cbegin();
+				itendListas = changed.cend();
+				cout << "* ";
+				while (itListas != itendListas) {
+					cout << itListas.elem() << " ";
+					itListas.next();
+				}
+				cout << endl;
+			}
+			
+		}
+		else {
+			cout << "Sin cambios" << endl;
+		}
+
+		cout << "----" << endl;
+		n--;
+	}
+
+	return 0;
+}
+
+TreeMap<string, int> fillMap() {
+	TreeMap<string, int> arbol;
+	int valor;
+	string linea, clave;
+
+	cin.clear();
+
+	getline(cin, linea);
+	stringstream ss(linea);
+
+	while (ss >> clave){
+		ss >> valor;
+		arbol.insert(clave, valor);
+	}
+
+	return arbol;
+}
+
+void changes(List<string> &nuevos, List<string> &borrados, List<string> &changed, TreeMap<string, int>::ConstIterator dant,  TreeMap<string, int>::ConstIterator end, TreeMap<string, int> nuevo) {
+	while (dant != end) {
+		if (nuevo.contains(dant.key())) {
+			if (nuevo.at(dant.key()) != dant.value()) { //si el valor ha cambiado
+				changed.push_back(dant.key());
+			}
+			nuevo.erase(dant.key());
+		}
+		else {
+			borrados.push_back(dant.key());
+		}
+		dant.next();
+	}
+
+	if (!nuevo.empty()) {
+		TreeMap<string, int>::ConstIterator dnuevo = nuevo.cbegin();
+
+		//si finalmente el diccionario nuevo no está vacío quiero introducir esos elementos en la lista "nuevos"
+		while (dnuevo != nuevo.cend()) {
+			nuevos.push_back(dnuevo.key());
+			dnuevo.next();
+		}
+	}
+}
+

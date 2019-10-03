@@ -3,4 +3,4 @@
 # AceptaElReto
 https://www.aceptaelreto.com
 
-Repositorio de soluciones de diversos ejercicios para la asignatura de EDA de 2º de Ing. Informática.
+Repositorio de soluciones de diversos ejercicios para la asignatura de EDA de 2º de Ingeniería Informática.
